@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">Green Places</string>
+    <string name="welcomeback">Welcome back, %1s! &#127793;</string>
+    <string name="search_hint">Search…</string>
 </resources>

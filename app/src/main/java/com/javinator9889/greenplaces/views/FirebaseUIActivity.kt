@@ -18,48 +18,35 @@
  */
 package com.javinator9889.greenplaces.views
 
-import android.app.Activity
+import android.content.Intent
 import android.widget.Toast
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
-import com.firebase.ui.auth.AuthUI
-import com.firebase.ui.auth.IdpResponse
 import com.google.firebase.auth.FirebaseAuth
 import com.javinator9889.greenplaces.R
+import com.javinator9889.greenplaces.datamodels.LoginModel
 
 
 class FirebaseUIActivity : AppCompatActivity() {
-    init {
-        lifecycleScope.launchWhenCreated {
-            val providers = arrayListOf(
-                AuthUI.IdpConfig.EmailBuilder().build(),
-                AuthUI.IdpConfig.GoogleBuilder().build(),
-                AuthUI.IdpConfig.GitHubBuilder().build()
-            )
+    private val model = LoginModel(this)
 
-            val activityRegister =
-                registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { res ->
-                    val response = IdpResponse.fromResultIntent(res.data)
-                    if (res.resultCode == Activity.RESULT_OK) {
-                        val user = FirebaseAuth.getInstance().currentUser
-                        Toast.makeText(
-                            this@FirebaseUIActivity, "User $user signed in " +
-                                    "with response $response", Toast.LENGTH_LONG
-                        ).show()
-                        finish()
-                    }
-                }
-            val intent = with(AuthUI.getInstance().createSignInIntentBuilder()) {
-                setAvailableProviders(providers)
-                setTheme(R.style.Theme_GreenPlaces)
-                setTosAndPrivacyPolicyUrls(
-                    "https://javinator9889.com",
-                    "https://javinator9889.com"
-                )
-                build()
-            }
-            activityRegister.launch(intent)
+    init {
+        LoginModel.theme = R.style.Theme_GreenPlaces
+        LoginModel.privacyUrl = "https://javinator9889.com"
+        LoginModel.tosUrl = "https://javinator9889.com"
+        LoginModel.logo = R.mipmap.ic_launcher_round
+
+        lifecycleScope.launchWhenCreated {
+            LoginModel.onLoginIntent = Intent(this@FirebaseUIActivity, MainActivity::class.java)
+            FirebaseAuth.getInstance().currentUser?.let {
+                Toast.makeText(
+                    this@FirebaseUIActivity,
+                    getString(R.string.welcomeback, it.displayName),
+                    Toast.LENGTH_LONG
+                ).show()
+                startActivity(LoginModel.onLoginIntent)
+                finish()
+            } ?: model.registerActivity.launch(LoginModel.intent)
         }
     }
 }
