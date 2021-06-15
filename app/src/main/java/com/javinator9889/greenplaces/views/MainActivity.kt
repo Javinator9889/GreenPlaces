@@ -1,11 +1,9 @@
 package com.javinator9889.greenplaces.views
 
 import android.annotation.SuppressLint
-import android.graphics.BitmapFactory
 import android.graphics.Color
 import android.os.Bundle
 import android.view.View
-import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
@@ -15,20 +13,25 @@ import com.afollestad.materialdialogs.MaterialDialog
 import com.afollestad.materialdialogs.bottomsheets.BottomSheet
 import com.afollestad.materialdialogs.customview.customView
 import com.afollestad.materialdialogs.lifecycle.lifecycleOwner
+import com.bumptech.glide.Glide
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.GoogleMap
 import com.google.android.gms.maps.SupportMapFragment
 import com.google.android.gms.maps.model.LatLng
+import com.google.android.gms.maps.model.TileOverlay
+import com.google.maps.android.heatmaps.Gradient
 import com.google.maps.android.heatmaps.HeatmapTileProvider
 import com.google.maps.android.ktx.*
 import com.google.maps.android.ktx.utils.heatmaps.heatmapTileProviderWithWeightedData
 import com.javinator9889.greenplaces.R
+import com.javinator9889.greenplaces.api.firebase.Storage
 import com.javinator9889.greenplaces.databinding.ActivityMainBinding
 import com.javinator9889.greenplaces.databinding.UploadImgBinding
 import com.javinator9889.greenplaces.datamodels.ImageCatcher
 import com.javinator9889.greenplaces.utils.extensions.await
+import com.javinator9889.greenplaces.utils.extensions.latlng
 import com.javinator9889.greenplaces.viewmodels.HeatMapsModel
 import com.mikepenz.iconics.IconicsColor
 import com.mikepenz.iconics.IconicsDrawable
@@ -36,13 +39,28 @@ import com.mikepenz.iconics.typeface.library.googlematerial.GoogleMaterial
 import com.mikepenz.iconics.utils.color
 import com.mikepenz.iconics.utils.paddingDp
 import com.mikepenz.iconics.utils.sizeDp
+import kotlinx.coroutines.launch
 import timber.log.Timber
-import java.io.File
 
 @SuppressLint("MissingPermission")
 class MainActivity : AppCompatActivity() {
+    companion object {
+        val AQIGradient = Gradient(
+            intArrayOf(
+                Color.GREEN,
+                Color.YELLOW,
+                Color.rgb(255, 159, 17),
+                Color.rgb(218, 0, 25),
+                Color.rgb(125, 0, 152),
+                Color.rgb(135, 0, 23)
+            ),
+            floatArrayOf(0.1F, 0.2F, 0.3F, 0.4F, 0.6F, 1F)
+        )
+    }
+
     private lateinit var map: GoogleMap
     private lateinit var img: ImageCatcher
+    private lateinit var overlay: TileOverlay
     private lateinit var binding: ActivityMainBinding
     private lateinit var provider: HeatmapTileProvider
     private lateinit var mapFragment: SupportMapFragment
@@ -57,11 +75,19 @@ class MainActivity : AppCompatActivity() {
                 Timber.d("Received weights: $it")
                 if (it.isNotEmpty()) {
                     if (!::provider.isInitialized) {
-                        provider = heatmapTileProviderWithWeightedData(it, radius = 50)
-                        map.addTileOverlay { tileProvider(provider) }
-                    } else provider.setWeightedData(it)
-                    binding.progressBar.visibility = View.INVISIBLE
+                        provider = heatmapTileProviderWithWeightedData(
+                            it,
+                            radius = 50,
+                            maxIntensity = 500.0,
+                            gradient = AQIGradient
+                        )
+                        overlay = map.addTileOverlay { tileProvider(provider) }!!
+                    } else {
+                        provider.setWeightedData(it)
+                        overlay.clearTileCache()
+                    }
                 }
+                binding.progressBar.visibility = View.INVISIBLE
             }
             map = mapFragment.awaitMap()
             val location = fusedLocationClient.lastLocation.await()
@@ -114,28 +140,24 @@ class MainActivity : AppCompatActivity() {
             registerForActivityResult(ActivityResultContracts.TakePicture()) { saved ->
                 if (saved) {
                     val imgBinding = UploadImgBinding.inflate(layoutInflater)
-                    val stream = File(img.currentPhotoPath).inputStream()
-                    imgBinding.imageView.setImageBitmap(BitmapFactory.decodeStream(stream))
-                    imgBinding.submit.setOnClickListener {
-                        Toast.makeText(
-                            this,
-                            "Submit",
-                            Toast.LENGTH_LONG
-                        ).show()
-                    }
-//                    val v = layoutInflater.inflate(R.layout.upload_img)
+                    Glide.with(this)
+                        .load(img.file)
+                        .into(imgBinding.imageView)
+
                     MaterialDialog(this, BottomSheet(LayoutMode.WRAP_CONTENT)).show {
                         customView(view = imgBinding.root)
-                        positiveButton(text = "Enviar")
                         negativeButton(text = "Cancelar")
                         lifecycleOwner(this@MainActivity)
+                        positiveButton(text = "Enviar") {
+                            lifecycleScope.launch {
+                                Storage.uploadImage(
+                                    img.file,
+                                    fusedLocationClient.lastLocation.await().latlng
+                                )
+                            }
+                        }
                     }
                 }
-//                if (saved) {
-//                    startActivity(Intent(this, ImageUploadActivity::class.java).apply {
-//                        putExtra(ImageUploadActivity.IMAGE_EXTRA, img.currentPhotoPath)
-//                    })
-//                }
             }
         binding.fab.setOnClickListener {
             img = ImageCatcher.createImageFile(this)
