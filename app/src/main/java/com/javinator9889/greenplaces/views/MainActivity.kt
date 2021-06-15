@@ -5,6 +5,7 @@ import android.graphics.Color
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.util.Log
+import androidx.activity.viewModels
 import androidx.lifecycle.lifecycleScope
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
@@ -23,19 +24,32 @@ import com.javinator9889.greenplaces.R
 import com.javinator9889.greenplaces.api.WAQIApi
 import com.javinator9889.greenplaces.datamodels.Bounds
 import com.javinator9889.greenplaces.utils.extensions.await
+import com.javinator9889.greenplaces.viewmodels.HeatMapsModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import timber.log.Timber
 
 @SuppressLint("MissingPermission")
-class MainActivity : AppCompatActivity(), GoogleMap.OnCameraIdleListener {
+class MainActivity : AppCompatActivity() {
     private lateinit var map: GoogleMap
+    private lateinit var provider: HeatmapTileProvider
     private lateinit var mapFragment: SupportMapFragment
     private lateinit var fusedLocationClient: FusedLocationProviderClient
+    private val heatMapsModel: HeatMapsModel by viewModels()
 
     init {
-        lifecycleScope.launchWhenStarted {
+        lifecycleScope.launchWhenCreated {
+            Timber.d("Defining heatmap observer")
+            heatMapsModel.heatMaps.observe(this@MainActivity) {
+                Timber.d("Received weights: $it")
+                if (it.isNotEmpty()) {
+                    if (!::provider.isInitialized) {
+                        provider = heatmapTileProviderWithWeightedData(it, radius = 50)
+                        map.addTileOverlay { tileProvider(provider) }
+                    } else provider.setWeightedData(it)
+                }
+            }
             map = mapFragment.awaitMap()
             val location = fusedLocationClient.lastLocation.await()
             map.moveCamera(
@@ -48,56 +62,12 @@ class MainActivity : AppCompatActivity(), GoogleMap.OnCameraIdleListener {
             map.uiSettings.isMyLocationButtonEnabled = true
             map.uiSettings.isZoomControlsEnabled = true
             map.uiSettings.isZoomGesturesEnabled = true
-
-            Timber.d("Adding marker...")
-            map.addMarker {
-                position(LatLng(40.8497241, -3.9720852))
-                title("Peñalara")
-                snippet("Montaña de gran altura con un parque con lagos, vegetación y fauna, como águilas y buitres")
-//                icon(BitmapDescriptorFactory.fromResource(R.drawable.pe_alara))
+            map.setOnCameraIdleListener {
+                if (!::map.isInitialized)
+                    return@setOnCameraIdleListener
+                Timber.d("Updating visible stations to range: [${map.projection.visibleRegion.latLngBounds.northeast}, ${map.projection.visibleRegion.latLngBounds.southwest}]")
+                heatMapsModel.toggleRun(map.projection.visibleRegion.latLngBounds)
             }
-            map.setOnCameraIdleListener(this@MainActivity)
-//            map.setOnCameraIdleListener {
-//
-//            }
-//            Timber.d("Creating bounds...")
-//            val bounds = with(LatLngBounds.Builder()) {
-//                val pos = LatLng(location.latitude, location.longitude)
-//                for (i in 0..270 step 90) {
-//                    include(SphericalUtil.computeOffset(pos, 1e4, i.toDouble()))
-//                }
-//                build()
-//            }
-//
-//            Timber.d("Northeast: ${bounds.northeast}")
-//            Timber.d("Southwest: ${bounds.southwest}")
-//            val rectangle =
-//                createRectangle(LatLng(location.latitude, location.longitude), 1.0, 1.0)
-//            Timber.d(rectangle.toString())
-//            map.addPolygon {
-//                addAll(rectangle)
-//                strokeColor(Color.BLACK)
-//            }
-//            SphericalUtil.computeOffset()
-//            val bounds = rectangleBounds(
-//                LatLng(
-//                    location.latitude,
-//                    location.longitude
-//                ), 1.0, 1.0
-//            )
-//            Timber.d("Northeast: $northeast")
-//            Timber.d("Southwest: $southwest")
-//            val api = withContext(Dispatchers.IO) {
-//                WAQIApi.fromBounds(bounds)
-////                Timber.d(api.toString())
-//            }
-//            for (data in api.data) {
-//                map.addMarker {
-//                    position(LatLng(data.lat, data.lon))
-//                    title(data.station.name)
-//                    snippet(data.aqi)
-//                }
-//            }
         }
     }
 
@@ -115,21 +85,21 @@ class MainActivity : AppCompatActivity(), GoogleMap.OnCameraIdleListener {
             LatLng(center.latitude - halfHeight, center.longitude - halfHeight)
         )
 
-    override fun onCameraIdle() {
-        lifecycleScope.launch {
-            if (!::map.isInitialized)
-                return@launch
-            val bounds = map.projection.visibleRegion.latLngBounds
-            val api = withContext(Dispatchers.IO) {
-                WAQIApi.fromBounds(bounds)
-            }
-            if (api.data.isNotEmpty()) {
-                val heatmap = heatmapTileProviderWithWeightedData(api.data.map {
-                    WeightedLatLng(LatLng(it.lat, it.lon), it.aqi.toDouble())
-                }, radius = 50)
-                map.addTileOverlay { tileProvider(heatmap) }
-            }
-//            with(HeatmapTileProvider.Builder()) {
+//    override fun onCameraIdle() {
+//        lifecycleScope.launch {
+//            if (!::map.isInitialized)
+//                return@launch
+//            val bounds = map.projection.visibleRegion.latLngBounds
+//            val api = withContext(Dispatchers.IO) {
+//                WAQIApi.fromBounds(bounds)
+//            }
+//            if (api.data.isNotEmpty()) {
+//                val heatmap = heatmapTileProviderWithWeightedData(api.data.map {
+//                    WeightedLatLng(LatLng(it.lat, it.lon), it.aqi.toDouble())
+//                }, radius = 50)
+//                map.addTileOverlay { tileProvider(heatmap) }
+//            }
+////            with(HeatmapTileProvider.Builder()) {
 //                heatmapTileProviderWithWeightedData()
 //            }
 //            for (data in api.data) {
@@ -139,6 +109,5 @@ class MainActivity : AppCompatActivity(), GoogleMap.OnCameraIdleListener {
 //                    fillColor(if (data.aqi < 40) Color.GREEN else Color.RED)
 //                }
 //            }
-        }
-    }
+//        }
 }
