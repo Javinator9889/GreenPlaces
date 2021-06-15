@@ -14,5 +14,10 @@
         <!-- Customize your theme here. -->
         <item name="android:fontFamily">@font/product_sans</item>
         <item name="fontFamily">@font/product_sans</item>
+        <!-- Material Drawer theme -->
+        <item name="materialDrawerStyle">@style/Widget.MaterialDrawerStyle</item>
+        <item name="materialDrawerHeaderStyle">@style/Widget.MaterialDrawerHeaderStyle</item>
+        <!-- Material Dialogs corner radius -->
+        <item name="md_corner_radius">16dp</item>
     </style>
 </resources>

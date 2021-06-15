@@ -19,25 +19,19 @@
 package com.javinator9889.greenplaces.viewmodels
 
 import android.util.SparseArray
-//import androidx.core.util.contains
-import android.util.SparseIntArray
 import androidx.core.util.set
-import androidx.core.util.valueIterator
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.LatLngBounds
 import com.google.maps.android.heatmaps.WeightedLatLng
-import com.google.maps.android.ktx.utils.heatmaps.heatmapTileProviderWithWeightedData
 import com.javinator9889.greenplaces.api.WAQIApi
 import com.javinator9889.greenplaces.datamodels.Bounds
 import com.javinator9889.greenplaces.utils.coroutines.Condition
 import com.javinator9889.greenplaces.utils.coroutines.send
 import com.javinator9889.greenplaces.utils.coroutines.waitAndRun
-import com.javinator9889.greenplaces.utils.coroutines.waitFor
 import com.javinator9889.greenplaces.utils.extensions.asList
-import com.javinator9889.greenplaces.utils.extensions.contains
 import com.javinator9889.greenplaces.utils.extensions.minusAssign
 import com.javinator9889.greenplaces.utils.extensions.notContains
 import kotlinx.coroutines.Dispatchers

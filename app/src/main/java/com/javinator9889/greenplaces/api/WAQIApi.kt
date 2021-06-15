@@ -22,27 +22,40 @@ import android.os.Parcelable
 import com.beust.klaxon.Klaxon
 import com.google.android.gms.maps.model.LatLngBounds
 import com.javinator9889.greenplaces.BuildConfig
+import com.javinator9889.greenplaces.GreenPlacesApp
 import com.javinator9889.greenplaces.api.converters.KlaxonDate
 import com.javinator9889.greenplaces.api.converters.KlaxonInt
 import com.javinator9889.greenplaces.api.converters.dateConverter
 import com.javinator9889.greenplaces.api.converters.intConverter
 import com.javinator9889.greenplaces.datamodels.Bounds
 import kotlinx.parcelize.Parcelize
+import okhttp3.Cache
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okio.IOException
+import timber.log.Timber
+import java.io.File
 
 
 @Parcelize
 data class WAQIApi(val status: String, val data: List<StationData>) : Parcelable {
     companion object {
-        private val client = OkHttpClient()
+        private val client = with(OkHttpClient.Builder()) {
+            cache(
+                Cache(
+                    directory = File(GreenPlacesApp.instance.cacheDir, "http_cache"),
+                    // At most 50 MiB of cache
+                    maxSize = 50L * 1024L * 1024L
+                )
+            )
+            build()
+        }
 
         fun fromBounds(bounds: LatLngBounds): WAQIApi = fromBounds(Bounds.fromBounds(bounds))
 
         fun fromBounds(bounds: Bounds): WAQIApi {
             val req = with(Request.Builder()) {
-                url("https://api.waqi.info/map/bounds/?token=${BuildConfig.WQAPI_API_KEY}&latlng=${bounds}")
+                url("https://api.waqi.info/map/bounds/?token=${BuildConfig.WQAPI_API_KEY}&latlng=$bounds")
                 build()
             }
 
