@@ -20,11 +20,25 @@ package com.javinator9889.greenplaces
 
 import android.app.Application
 import timber.log.Timber
+import java.lang.ref.WeakReference
 
 class GreenPlacesApp : Application() {
+    companion object {
+        private const val ERROR_MSG = "Application has not been started yet!"
+        private lateinit var privInstance: WeakReference<GreenPlacesApp>
+        var instance: GreenPlacesApp
+            get() {
+                if (!::privInstance.isInitialized)
+                    throw IllegalStateException(ERROR_MSG)
+                return privInstance.get() ?: throw IllegalStateException(ERROR_MSG)
+            }
+            set(value) { privInstance = WeakReference(value) }
+    }
+
     override fun onCreate() {
         super.onCreate()
         if (BuildConfig.DEBUG)
             Timber.plant(Timber.DebugTree())
+        instance = this
     }
 }

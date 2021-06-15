@@ -21,6 +21,7 @@ package com.javinator9889.greenplaces.datamodels
 import android.os.Parcelable
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.LatLngBounds
+import com.javinator9889.greenplaces.utils.extensions.format
 import kotlinx.parcelize.Parcelize
 
 @Parcelize
@@ -28,6 +29,10 @@ data class Bounds(val northeast: LatLng, val southwest: LatLng) : Parcelable {
     companion object {
         fun fromBounds(bounds: LatLngBounds): Bounds = Bounds(bounds.northeast, bounds.southwest)
     }
+
+    fun approximate(): String = "${northeast.latitude.format(8)},${northeast.longitude.format(8)},${
+        southwest.latitude.format(8)
+    },${southwest.longitude.format(8)}"
 
     override fun toString(): String =
         "${northeast.latitude},${northeast.longitude},${southwest.latitude},${southwest.longitude}"

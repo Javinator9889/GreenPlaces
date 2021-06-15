@@ -1,42 +1,54 @@
 package com.javinator9889.greenplaces.views
 
 import android.annotation.SuppressLint
+import android.graphics.BitmapFactory
 import android.graphics.Color
-import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
-import android.util.Log
+import android.view.View
+import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
+import com.afollestad.materialdialogs.LayoutMode
+import com.afollestad.materialdialogs.MaterialDialog
+import com.afollestad.materialdialogs.bottomsheets.BottomSheet
+import com.afollestad.materialdialogs.customview.customView
+import com.afollestad.materialdialogs.lifecycle.lifecycleOwner
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.GoogleMap
 import com.google.android.gms.maps.SupportMapFragment
-import com.google.android.gms.maps.model.BitmapDescriptorFactory
 import com.google.android.gms.maps.model.LatLng
-import com.google.android.gms.maps.model.LatLngBounds
-import com.google.maps.android.SphericalUtil
 import com.google.maps.android.heatmaps.HeatmapTileProvider
-import com.google.maps.android.heatmaps.WeightedLatLng
 import com.google.maps.android.ktx.*
 import com.google.maps.android.ktx.utils.heatmaps.heatmapTileProviderWithWeightedData
 import com.javinator9889.greenplaces.R
-import com.javinator9889.greenplaces.api.WAQIApi
-import com.javinator9889.greenplaces.datamodels.Bounds
+import com.javinator9889.greenplaces.databinding.ActivityMainBinding
+import com.javinator9889.greenplaces.databinding.UploadImgBinding
+import com.javinator9889.greenplaces.datamodels.ImageCatcher
 import com.javinator9889.greenplaces.utils.extensions.await
 import com.javinator9889.greenplaces.viewmodels.HeatMapsModel
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
+import com.mikepenz.iconics.IconicsColor
+import com.mikepenz.iconics.IconicsDrawable
+import com.mikepenz.iconics.typeface.library.googlematerial.GoogleMaterial
+import com.mikepenz.iconics.utils.color
+import com.mikepenz.iconics.utils.paddingDp
+import com.mikepenz.iconics.utils.sizeDp
 import timber.log.Timber
+import java.io.File
 
 @SuppressLint("MissingPermission")
 class MainActivity : AppCompatActivity() {
     private lateinit var map: GoogleMap
+    private lateinit var img: ImageCatcher
+    private lateinit var binding: ActivityMainBinding
     private lateinit var provider: HeatmapTileProvider
     private lateinit var mapFragment: SupportMapFragment
     private lateinit var fusedLocationClient: FusedLocationProviderClient
     private val heatMapsModel: HeatMapsModel by viewModels()
+
 
     init {
         lifecycleScope.launchWhenCreated {
@@ -48,6 +60,7 @@ class MainActivity : AppCompatActivity() {
                         provider = heatmapTileProviderWithWeightedData(it, radius = 50)
                         map.addTileOverlay { tileProvider(provider) }
                     } else provider.setWeightedData(it)
+                    binding.progressBar.visibility = View.INVISIBLE
                 }
             }
             map = mapFragment.awaitMap()
@@ -65,6 +78,7 @@ class MainActivity : AppCompatActivity() {
             map.setOnCameraIdleListener {
                 if (!::map.isInitialized)
                     return@setOnCameraIdleListener
+                binding.progressBar.visibility = View.VISIBLE
                 Timber.d("Updating visible stations to range: [${map.projection.visibleRegion.latLngBounds.northeast}, ${map.projection.visibleRegion.latLngBounds.southwest}]")
                 heatMapsModel.toggleRun(map.projection.visibleRegion.latLngBounds)
             }
@@ -73,41 +87,60 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
+        binding = ActivityMainBinding.inflate(layoutInflater).also { setContentView(it.root) }
 
         mapFragment = supportFragmentManager.findFragmentById(R.id.map) as SupportMapFragment
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
-    }
 
-    private fun rectangleBounds(center: LatLng, halfWidth: Double, halfHeight: Double) =
-        Bounds(
-            LatLng(center.latitude + halfHeight, center.longitude + halfWidth),
-            LatLng(center.latitude - halfHeight, center.longitude - halfHeight)
-        )
+        binding.progressBar.visibility = View.VISIBLE
 
-//    override fun onCameraIdle() {
-//        lifecycleScope.launch {
-//            if (!::map.isInitialized)
-//                return@launch
-//            val bounds = map.projection.visibleRegion.latLngBounds
-//            val api = withContext(Dispatchers.IO) {
-//                WAQIApi.fromBounds(bounds)
-//            }
-//            if (api.data.isNotEmpty()) {
-//                val heatmap = heatmapTileProviderWithWeightedData(api.data.map {
-//                    WeightedLatLng(LatLng(it.lat, it.lon), it.aqi.toDouble())
-//                }, radius = 50)
-//                map.addTileOverlay { tileProvider(heatmap) }
-//            }
-////            with(HeatmapTileProvider.Builder()) {
-//                heatmapTileProviderWithWeightedData()
-//            }
-//            for (data in api.data) {
-//                map.addCircle {
-//                    center(LatLng(data.lat, data.lon))
-//                    radius(1e3)
-//                    fillColor(if (data.aqi < 40) Color.GREEN else Color.RED)
+        binding.bottomAppBar.navigationIcon =
+            IconicsDrawable(this, GoogleMaterial.Icon.gmd_menu).apply {
+                sizeDp = 24
+                paddingDp = 1
+                color = IconicsColor.colorInt(Color.WHITE)
+            }
+        binding.fab.setImageDrawable(
+            IconicsDrawable(
+                this,
+                GoogleMaterial.Icon.gmd_add_a_photo
+            ).apply {
+                sizeDp = 24
+                paddingDp = 1
+            })
+        supportActionBar?.hide()
+
+        val takePic =
+            registerForActivityResult(ActivityResultContracts.TakePicture()) { saved ->
+                if (saved) {
+                    val imgBinding = UploadImgBinding.inflate(layoutInflater)
+                    val stream = File(img.currentPhotoPath).inputStream()
+                    imgBinding.imageView.setImageBitmap(BitmapFactory.decodeStream(stream))
+                    imgBinding.submit.setOnClickListener {
+                        Toast.makeText(
+                            this,
+                            "Submit",
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
+//                    val v = layoutInflater.inflate(R.layout.upload_img)
+                    MaterialDialog(this, BottomSheet(LayoutMode.WRAP_CONTENT)).show {
+                        customView(view = imgBinding.root)
+                        positiveButton(text = "Enviar")
+                        negativeButton(text = "Cancelar")
+                        lifecycleOwner(this@MainActivity)
+                    }
+                }
+//                if (saved) {
+//                    startActivity(Intent(this, ImageUploadActivity::class.java).apply {
+//                        putExtra(ImageUploadActivity.IMAGE_EXTRA, img.currentPhotoPath)
+//                    })
 //                }
-//            }
-//        }
+            }
+        binding.fab.setOnClickListener {
+            img = ImageCatcher.createImageFile(this)
+            takePic.launch(img.photoURI("com.javinator9889.greenplaces.fileprovider"))
+//            runCatching { startActivityFor }
+        }
+    }
 }
