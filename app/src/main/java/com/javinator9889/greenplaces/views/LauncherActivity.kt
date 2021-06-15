@@ -22,6 +22,7 @@ import android.content.Intent
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
 import androidx.preference.PreferenceManager
+import timber.log.Timber
 
 
 class LauncherActivity : AppCompatActivity() {
@@ -31,7 +32,9 @@ class LauncherActivity : AppCompatActivity() {
             if (getBoolean(INTRO_DONE_KEY, false)) FirebaseUIActivity::class.java
             else IntroActivity::class.java
         }
+        Timber.d("Starting activity $cls")
         startActivity(Intent(this@LauncherActivity, cls))
+        Timber.d("Launcher activity done")
         finish()
     }
 }

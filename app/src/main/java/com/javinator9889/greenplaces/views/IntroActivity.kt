@@ -18,6 +18,7 @@
  */
 package com.javinator9889.greenplaces.views
 
+import android.Manifest
 import android.content.Intent
 import android.graphics.Color
 import android.util.Log
@@ -38,10 +39,10 @@ import java.lang.ref.WeakReference
 internal const val INTRO_DONE_KEY = "app:intro-done"
 
 class IntroActivity : AppIntro2() {
-    private val fragments = SparseArray<WeakReference<Fragment>>(5)
+    private val fragments = SparseArray<Fragment>(5)
 
     init {
-        fragments.append(0, WeakReference(LottieIntroFragment.introBuilder {
+        fragments.append(0, LottieIntroFragment.introBuilder {
             title = "hola"
             description = "prueba"
             imageRes = R.raw.location_pin
@@ -54,43 +55,47 @@ class IntroActivity : AppIntro2() {
             descriptionColor = Color.DKGRAY
             titleTypeface = R.font.product_sans
             descriptionTypeface = R.font.product_sans
-        }))
+        })
         fragments.append(
-            1, WeakReference(
-                AppIntroFragment.newInstance(
-                    title = "Green Places",
-                    description = "A description at the bottom",
-                    imageDrawable = R.mipmap.ic_launcher,
-                    titleColor = Color.BLACK,
-                    descriptionColor = Color.DKGRAY,
-                    backgroundColor = Color.WHITE,
-                    titleTypefaceFontRes = R.font.open_sans_light,
-                    descriptionTypefaceFontRes = R.font.open_sans_light
-                )
+            1, AppIntroFragment.newInstance(
+                title = "Green Places",
+                description = "A description at the bottom",
+                imageDrawable = R.mipmap.ic_launcher,
+                titleColor = Color.BLACK,
+                descriptionColor = Color.DKGRAY,
+                backgroundColor = Color.WHITE,
+                titleTypefaceFontRes = R.font.open_sans_light,
+                descriptionTypefaceFontRes = R.font.open_sans_light
             )
         )
         fragments.append(
-            2, WeakReference(
-                AppIntroFragment.newInstance(
-                    title = "Green Places 2",
-                    description = "A new description at the bottom",
-                    imageDrawable = R.mipmap.ic_launcher,
-                    titleColor = Color.BLACK,
-                    descriptionColor = Color.DKGRAY,
-                    backgroundColor = Color.LTGRAY,
-                    titleTypefaceFontRes = R.font.open_sans_light,
-                    descriptionTypefaceFontRes = R.font.open_sans_light
-                )
+            2, AppIntroFragment.newInstance(
+                title = "Green Places 2",
+                description = "A new description at the bottom",
+                imageDrawable = R.mipmap.ic_launcher,
+                titleColor = Color.BLACK,
+                descriptionColor = Color.DKGRAY,
+                backgroundColor = Color.LTGRAY,
+                titleTypefaceFontRes = R.font.open_sans_light,
+                descriptionTypefaceFontRes = R.font.open_sans_light
             )
         )
         lifecycleScope.launchWhenCreated {
-            fragments.forEach { _, fragment -> fragment.get()?.let { addSlide(it) } }
+            fragments.forEach { _, fragment -> addSlide(fragment)  }
             setTransformer(AppIntroPageTransformerType.Parallax())
             isColorTransitionsEnabled = true
             isIndicatorEnabled = true
             isWizardMode = true
             showStatusBar(false)
             setProgressIndicator()
+            askForPermissions(
+                permissions = arrayOf(
+                    Manifest.permission.ACCESS_FINE_LOCATION,
+                    Manifest.permission.ACCESS_COARSE_LOCATION
+                ),
+                slideNumber = 1,
+                required = true
+            )
         }
     }
 
@@ -105,11 +110,9 @@ class IntroActivity : AppIntro2() {
     override fun onPageSelected(position: Int) {
         super.onPageSelected(position)
         fragments.forEach { i, fragment ->
-            fragment.get()?.let {
-                if (it is LottieIntroFragment) {
-                    if (i == position) it.setSelected()
-                    else it.setPaused()
-                }
+            if (fragment is LottieIntroFragment) {
+                if (i == position) fragment.setSelected()
+                else fragment.setPaused()
             }
         }
     }
