@@ -19,6 +19,10 @@
 package com.javinator9889.greenplaces
 
 import android.app.Application
+import com.google.firebase.FirebaseApp
+import com.google.firebase.appcheck.FirebaseAppCheck
+import com.google.firebase.appcheck.safetynet.SafetyNetAppCheckProviderFactory
+import com.javinator9889.greenplaces.utils.trees.CrashTree
 import timber.log.Timber
 import java.lang.ref.WeakReference
 
@@ -37,8 +41,16 @@ class GreenPlacesApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
-        if (BuildConfig.DEBUG)
-            Timber.plant(Timber.DebugTree())
+        FirebaseApp.initializeApp(this)
+        with(FirebaseAppCheck.getInstance()) {
+            installAppCheckProviderFactory(SafetyNetAppCheckProviderFactory.getInstance())
+        }
+        plantTree()
         instance = this
+    }
+
+    private fun plantTree() {
+        if (BuildConfig.DEBUG) Timber.plant(Timber.DebugTree())
+        else Timber.plant(CrashTree)
     }
 }
