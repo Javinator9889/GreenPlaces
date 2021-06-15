@@ -11,4 +11,5 @@
     <string name="missing_title">¡Falta el título de la imagen!</string>
     <string name="upload_done">Se ha completado la subida de la imagen</string>
     <string name="cancel">Cancelar</string>
+    <string name="image_info_title">Información sobre el lugar</string>
 </resources>

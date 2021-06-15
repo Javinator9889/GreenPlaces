@@ -29,6 +29,7 @@ import com.javinator9889.greenplaces.R
 import com.javinator9889.greenplaces.datamodels.Marker
 import com.javinator9889.greenplaces.utils.extensions.await
 import com.javinator9889.greenplaces.utils.extensions.md5
+import timber.log.Timber
 import java.io.File
 
 object Storage {
@@ -66,8 +67,9 @@ object Storage {
     }
 
     suspend fun downloadImage(hash: String): Pair<StorageReference, LatLng>? {
-        val location = with(Firebase.firestore.collection("images").document(hash)) {
-            val doc = get().await()
+        val location = with(Firebase.firestore.collection("images").whereEqualTo("hash", hash)) {
+            Timber.d("Got query $this")
+            val doc = get().await().documents[0]
             if (!doc.exists())
                 return null
             LatLng(doc.getDouble("lat")!!, doc.getDouble("lng")!!)

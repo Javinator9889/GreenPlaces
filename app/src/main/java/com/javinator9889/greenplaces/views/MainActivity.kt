@@ -33,22 +33,23 @@ import com.google.maps.android.ktx.utils.heatmaps.heatmapTileProviderWithWeighte
 import com.javinator9889.greenplaces.R
 import com.javinator9889.greenplaces.api.firebase.Storage
 import com.javinator9889.greenplaces.databinding.ActivityMainBinding
+import com.javinator9889.greenplaces.databinding.ImgViewerBinding
 import com.javinator9889.greenplaces.databinding.UploadImgBinding
 import com.javinator9889.greenplaces.datamodels.ImageCatcher
 import com.javinator9889.greenplaces.utils.extensions.await
 import com.javinator9889.greenplaces.utils.extensions.latlng
 import com.javinator9889.greenplaces.viewmodels.HeatMapsModel
 import com.javinator9889.greenplaces.viewmodels.MarkersViewModel
-import com.mikepenz.iconics.IconicsColor
 import com.mikepenz.iconics.IconicsDrawable
 import com.mikepenz.iconics.typeface.library.googlematerial.GoogleMaterial
-import com.mikepenz.iconics.utils.color
 import com.mikepenz.iconics.utils.paddingDp
 import com.mikepenz.iconics.utils.sizeDp
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import timber.log.Timber
 
-@SuppressLint("MissingPermission")
+@SuppressLint("MissingPermission", "PotentialBehaviorOverride")
 class MainActivity : AppCompatActivity() {
     companion object {
         val AQIGradient = Gradient(
@@ -131,6 +132,32 @@ class MainActivity : AppCompatActivity() {
                 heatMapsModel.toggleRun(map.projection.visibleRegion.latLngBounds)
                 markersViewModel.toggleRun(map.projection.visibleRegion.latLngBounds)
             }
+            map.setOnMarkerClickListener {
+                lifecycleScope.launch {
+                    val md5sum = it.tag as? String
+                    if (md5sum != null) {
+                        val (ref, _) = Storage.downloadImage(md5sum)
+                            ?: throw IllegalStateException("Marker not found!")
+                        val imgBinding = ImgViewerBinding.inflate(layoutInflater)
+                        Glide.with(this@MainActivity)
+                            .load(ref)
+                            .into(imgBinding.imageView)
+                        imgBinding.imageTitle.text = it.title
+                        it.snippet?.let { imgBinding.imageDescription.text = it }
+                            ?: imgBinding.imageDescription.setVisibility(View.GONE)
+
+                        MaterialDialog(
+                            this@MainActivity,
+                            BottomSheet(LayoutMode.WRAP_CONTENT)
+                        ).show {
+                            customView(view = imgBinding.root)
+                            negativeButton(R.string.cancel)
+                            lifecycleOwner(this@MainActivity)
+                        }
+                    }
+                }
+                return@setOnMarkerClickListener true
+            }
         }
     }
 
@@ -143,12 +170,6 @@ class MainActivity : AppCompatActivity() {
 
         binding.progressBar.visibility = View.VISIBLE
 
-        binding.bottomAppBar.navigationIcon =
-            IconicsDrawable(this, GoogleMaterial.Icon.gmd_menu).apply {
-                sizeDp = 24
-                paddingDp = 1
-                color = IconicsColor.colorInt(Color.WHITE)
-            }
         binding.fab.setImageDrawable(
             IconicsDrawable(
                 this,
@@ -198,17 +219,17 @@ class MainActivity : AppCompatActivity() {
                                             max = 100
                                             progress = percentage
                                         }
-                                        if (percentage >= 100) {
-                                            binding.progressBar.visibility = View.GONE
-                                            binding.progressBar.isIndeterminate = true
-                                            Snackbar.make(
-                                                binding.coordinator,
-                                                R.string.upload_done,
-                                                Snackbar.LENGTH_LONG
-                                            ).show()
-                                            markersViewModel.toggleRun(map.projection.visibleRegion.latLngBounds)
-                                        }
                                     }
+                                    withContext(Dispatchers.Main) {
+                                        binding.progressBar.visibility = View.GONE
+                                        binding.progressBar.isIndeterminate = true
+                                        Snackbar.make(
+                                            binding.coordinator,
+                                            R.string.upload_done,
+                                            Snackbar.LENGTH_LONG
+                                        ).show()
+                                    }
+                                    markersViewModel.toggleRun(map.projection.visibleRegion.latLngBounds)
                                 }
                                 it.dismiss()
                             }
@@ -219,7 +240,6 @@ class MainActivity : AppCompatActivity() {
         binding.fab.setOnClickListener {
             img = ImageCatcher.createImageFile(this)
             takePic.launch(img.photoURI("com.javinator9889.greenplaces.fileprovider"))
-//            runCatching { startActivityFor }
         }
     }
 }
