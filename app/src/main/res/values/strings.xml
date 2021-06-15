@@ -4,12 +4,18 @@
     <string name="search_hint">Buscar…</string>
     <string name="drawer_item_home">Inicio</string>
     <string name="drawer_item_settings">Ajustes</string>
-    <string name="image_config_title">Configuracion de la imagen</string>
-    <string name="title_hint">Titulo de la imagen…</string>
+    <string name="image_config_title">Configuración de la imagen</string>
+    <string name="title_hint">Título de la imagen…</string>
     <string name="description_hint">Descripción de la imagen…</string>
     <string name="send">Enviar</string>
     <string name="missing_title">¡Falta el título de la imagen!</string>
     <string name="upload_done">Se ha completado la subida de la imagen</string>
     <string name="cancel">Cancelar</string>
     <string name="image_info_title">Información sobre el lugar</string>
+    <string name="location_access">Acceso a la ubicación</string>
+    <string name="location_explanation">Se necesita acceso a la ubicación para poder ofrecerte la mejor experiencia</string>
+    <string name="talk">Interactúa</string>
+    <string name="talk_explanation">Habla con gente de tu alrededor y establece rutas y sitios que buscar</string>
+    <string name="walk">Camina y descubre</string>
+    <string name="walk_explanation">Muevete por zonas que nunca antes habías descubierto y déjate llevar por la naturaleza</string>
 </resources>
