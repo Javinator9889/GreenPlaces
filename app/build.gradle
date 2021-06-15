@@ -4,6 +4,9 @@ plugins {
     id 'com.google.gms.google-services'
     id("com.google.android.secrets-gradle-plugin") version "1.1.0"
     id 'kotlin-parcelize'
+    // Apply the Crashlytics Gradle plugin
+    id 'com.google.firebase.crashlytics'
+    id 'kotlin-kapt'
 }
 
 android {
@@ -63,6 +66,11 @@ dependencies {
     implementation('com.firebaseui:firebase-ui-auth:7.2.0')
     // Firebase Crashlytics
     implementation('com.google.firebase:firebase-crashlytics-ktx')
+    // Firebase Storage
+    implementation('com.google.firebase:firebase-storage-ktx')
+    implementation('com.firebaseui:firebase-ui-storage:7.2.0')
+    // Firebase Firestore
+    implementation('com.google.firebase:firebase-firestore-ktx')
 
     // Kotlin coroutines
     implementation('org.jetbrains.kotlinx:kotlinx-coroutines-core:1.5.0')
@@ -143,4 +151,9 @@ dependencies {
 
     // SafetyNet for app's verification
     implementation 'com.google.firebase:firebase-appcheck-safetynet:16.0.0-beta01'
+
+    // Glide
+    implementation 'com.github.bumptech.glide:glide:4.12.0'
+    kapt 'com.github.bumptech.glide:compiler:4.12.0'
+    implementation("com.github.bumptech.glide:okhttp3-integration:4.12.0")
 }
