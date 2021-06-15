@@ -83,7 +83,7 @@ class HeatMapsModel : ViewModel() {
                 if (api.data.isNotEmpty()) {
                     val points = HashSet(api.data.map {
                         if (data notContains it.uid) {
-                            data[it.uid] = WeightedLatLng(LatLng(it.lat, it.lon))
+                            data[it.uid] = WeightedLatLng(LatLng(it.lat, it.lon), it.aqi.toDouble())
                             uids += it.uid
                         }
                         it.uid

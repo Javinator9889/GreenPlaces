@@ -27,7 +27,7 @@ import java.text.SimpleDateFormat
 import java.util.*
 
 class ImageCatcher(ts: String, storage: File?, private val context: Context) {
-    private val file = File.createTempFile("JPEG_${ts}_", ".jpg", storage)
+    val file = File.createTempFile("JPEG_${ts}_", ".jpg", storage)
     val currentPhotoPath: String = file.absolutePath
 
     fun photoURI(provider: String) = FileProvider.getUriForFile(context, provider, file)
