@@ -4,9 +4,12 @@ import android.annotation.SuppressLint
 import android.graphics.Color
 import android.os.Bundle
 import android.view.View
+import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.res.ResourcesCompat
+import androidx.core.graphics.drawable.toBitmap
 import androidx.lifecycle.lifecycleScope
 import com.afollestad.materialdialogs.LayoutMode
 import com.afollestad.materialdialogs.MaterialDialog
@@ -19,8 +22,10 @@ import com.google.android.gms.location.LocationServices
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.GoogleMap
 import com.google.android.gms.maps.SupportMapFragment
+import com.google.android.gms.maps.model.BitmapDescriptorFactory
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.TileOverlay
+import com.google.android.material.snackbar.Snackbar
 import com.google.maps.android.heatmaps.Gradient
 import com.google.maps.android.heatmaps.HeatmapTileProvider
 import com.google.maps.android.ktx.*
@@ -33,6 +38,7 @@ import com.javinator9889.greenplaces.datamodels.ImageCatcher
 import com.javinator9889.greenplaces.utils.extensions.await
 import com.javinator9889.greenplaces.utils.extensions.latlng
 import com.javinator9889.greenplaces.viewmodels.HeatMapsModel
+import com.javinator9889.greenplaces.viewmodels.MarkersViewModel
 import com.mikepenz.iconics.IconicsColor
 import com.mikepenz.iconics.IconicsDrawable
 import com.mikepenz.iconics.typeface.library.googlematerial.GoogleMaterial
@@ -66,6 +72,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var mapFragment: SupportMapFragment
     private lateinit var fusedLocationClient: FusedLocationProviderClient
     private val heatMapsModel: HeatMapsModel by viewModels()
+    private val markersViewModel: MarkersViewModel by viewModels()
 
 
     init {
@@ -89,6 +96,21 @@ class MainActivity : AppCompatActivity() {
                 }
                 binding.progressBar.visibility = View.INVISIBLE
             }
+            markersViewModel.markers.observe(this@MainActivity) {
+                Timber.d("Received new marker!")
+                if (::map.isInitialized) {
+                    map.addMarker {
+                        title(it.title)
+                        val bitmap =
+                            ResourcesCompat.getDrawable(resources, it.icon, null)?.toBitmap()
+                        bitmap?.let {
+                            icon(BitmapDescriptorFactory.fromBitmap(it))
+                        }
+                        snippet(it.description?.take(16))
+                        position(it.position)
+                    }?.let { marker -> marker.tag = it.md5sum }
+                }
+            }
             map = mapFragment.awaitMap()
             val location = fusedLocationClient.lastLocation.await()
             map.moveCamera(
@@ -107,6 +129,7 @@ class MainActivity : AppCompatActivity() {
                 binding.progressBar.visibility = View.VISIBLE
                 Timber.d("Updating visible stations to range: [${map.projection.visibleRegion.latLngBounds.northeast}, ${map.projection.visibleRegion.latLngBounds.southwest}]")
                 heatMapsModel.toggleRun(map.projection.visibleRegion.latLngBounds)
+                markersViewModel.toggleRun(map.projection.visibleRegion.latLngBounds)
             }
         }
     }
@@ -146,14 +169,48 @@ class MainActivity : AppCompatActivity() {
 
                     MaterialDialog(this, BottomSheet(LayoutMode.WRAP_CONTENT)).show {
                         customView(view = imgBinding.root)
-                        negativeButton(text = "Cancelar")
+                        negativeButton(R.string.cancel) {
+                            it.dismiss()
+                        }
                         lifecycleOwner(this@MainActivity)
-                        positiveButton(text = "Enviar") {
-                            lifecycleScope.launch {
-                                Storage.uploadImage(
-                                    img.file,
-                                    fusedLocationClient.lastLocation.await().latlng
-                                )
+                        noAutoDismiss()
+                        positiveButton(R.string.send) {
+                            if (imgBinding.imageTitle.editText!!.text.isEmpty()) {
+                                Toast.makeText(
+                                    this@MainActivity,
+                                    R.string.missing_title,
+                                    Toast.LENGTH_LONG
+                                ).show()
+                                return@positiveButton
+                            } else {
+                                lifecycleScope.launch {
+                                    Storage.uploadImage(
+                                        img = img.file,
+                                        location = fusedLocationClient.lastLocation.await().latlng,
+                                        title = imgBinding.imageTitle.editText!!.text.toString(),
+                                        description = imgBinding.imageDescription.editText!!.text.toString()
+                                    ) { upload ->
+                                        val percentage =
+                                            ((upload.bytesTransferred / upload.totalByteCount) * 100).toInt()
+                                        with(binding.progressBar) {
+                                            isIndeterminate = false
+                                            visibility = View.VISIBLE
+                                            max = 100
+                                            progress = percentage
+                                        }
+                                        if (percentage >= 100) {
+                                            binding.progressBar.visibility = View.GONE
+                                            binding.progressBar.isIndeterminate = true
+                                            Snackbar.make(
+                                                binding.coordinator,
+                                                R.string.upload_done,
+                                                Snackbar.LENGTH_LONG
+                                            ).show()
+                                            markersViewModel.toggleRun(map.projection.visibleRegion.latLngBounds)
+                                        }
+                                    }
+                                }
+                                it.dismiss()
                             }
                         }
                     }

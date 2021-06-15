@@ -25,6 +25,8 @@ import com.google.firebase.storage.StorageReference
 import com.google.firebase.storage.UploadTask
 import com.google.firebase.storage.ktx.storage
 import com.google.firebase.storage.ktx.storageMetadata
+import com.javinator9889.greenplaces.R
+import com.javinator9889.greenplaces.datamodels.Marker
 import com.javinator9889.greenplaces.utils.extensions.await
 import com.javinator9889.greenplaces.utils.extensions.md5
 import java.io.File
@@ -37,6 +39,8 @@ object Storage {
     suspend fun uploadImage(
         img: File,
         location: LatLng,
+        title: String,
+        description: String?,
         progressListener: ((UploadTask.TaskSnapshot) -> Unit)? = null
     ): String {
         val md5sum = img.md5()
@@ -48,7 +52,13 @@ object Storage {
         progressListener?.let { task.addOnProgressListener(it) }
         task.await()
         val imageData =
-            hashMapOf("hash" to md5sum, "lat" to location.latitude, "lng" to location.longitude)
+            hashMapOf(
+                "hash" to md5sum,
+                "lat" to location.latitude,
+                "lng" to location.longitude,
+                "title" to title,
+                "description" to description
+            )
         with(Firebase.firestore.collection("images")) {
             add(imageData).await()
         }
@@ -63,5 +73,20 @@ object Storage {
             LatLng(doc.getDouble("lat")!!, doc.getDouble("lng")!!)
         }
         return images.child(hash) to location
+    }
+
+    suspend fun images(): List<Marker> {
+        with(Firebase.firestore.collection("images")) {
+            val docs = get().await()
+            return docs.documents.map {
+                Marker(
+                    position = LatLng(it.getDouble("lat")!!, it.getDouble("lng")!!),
+                    icon = R.drawable.plant,
+                    title = it.getString("title")!!,
+                    description = it.getString("description"),
+                    md5sum = it.getString("hash")!!
+                )
+            }
+        }
     }
 }
